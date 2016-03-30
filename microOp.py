@@ -1,7 +1,9 @@
 genOpcode = []
 
-defaultOpcode = '\xfe\x7f\xff\xff'
+defaultOpcode = '\xff\x9f\xff\xff'
 currentOpcode = defaultOpcode
+
+opList = ['mpld', 'mxc1', 'mxc0', 'ssp1', 'ssp0', 'pinc', 'pld2', 'pld1', 'pld0', 's2', 's1', 's0', 'cp', 'zp', 'mxb1', 'mxb0', 'ob', 'ga2', 'ahs', 'ga1', 'gi', 'gt', 'gc', 'crdx', 'cwrx', 'wre'][::-1]
 
 currentBeats = 0
 
@@ -26,8 +28,6 @@ def b32(i):
    
 def genRightShiftString(num):
     return b32(1 << num)
-
-opList = ['cwrx', 'crdx', 'mpld', 'mxc1', 'mxc0', 'ssp1', 'ssp0', 'pinc', 'pld2', 'pld1', 'pld0', 'mxa', 's2', 's1', 's0', 'mxe', 'cp', 'zp', 'mxb1', 'mxb0', 'ob', 'ga2', 'ahs', 'ga1', 'gi', 'gt', 'gc', 'rrc', 'ga', 'wre'][::-1]
     
 for i, opName in enumerate(opList):
     globals()[opName] = (lambda i: lambda: globalVarInPlaceXor('currentOpcode', genRightShiftString(i)))(i)
