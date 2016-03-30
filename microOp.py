@@ -52,12 +52,17 @@ def reserve(num=1):
     
 def asm_instruction(f):
     def wrapper(opLen = None):
-        global currentBeats
+        global currentBeats, genOpcode
         currentBeats = 0
         f()
+        opcodeDump = f.__name__ + ':\r\n'
+        for i in xrange(len(genOpcode)-currentBeats, len(genOpcode)):
+            opcodeDump += genOpcode[i].encode('hex') + ' '
+        print opcodeDump
         if opLen is not None:
             reserve(opLen - currentBeats)
         endOfInstruction()
+    wrapper.__name__ = f.__name__
     return wrapper
     
 def callInThisBeat(varList):
