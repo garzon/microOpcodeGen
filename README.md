@@ -55,3 +55,87 @@ S9030000FC
 Saving to ../genCode.m19
 
 ```
+
+## 微程序m19文件生成器python脚本简介
+
+`microOpcodeGen/microOp.py`为m19生成器的框架代码，内含有微操作向量的定义以及默认微操作向量（所有操作置于无效位），如：    
+
+```python
+opList = ['mxa', 'mpld', 'mxc1', 'mxc0', 'ssp1', 'ssp0', 'pinc', 'pld2', 'pld1', 'pld0', 's2', 's1', 's0', 'cp', 'zp', 'mxb1', 'mxb0', 'ob', 'ga2', 'ahs', 'ga1', 'gi', 'gt', 'gc', 'crdx', 'cwrx', 'wre'][::-1]
+```
+上述代码表示mir(26 downto 0)为mxa, mpld, mxc1 .... cwrx, wre。 mir(32 downto 27)未使用    
+那么32位默认向量即为：    
+```python
+defaultOpcode = '\xff\x9f\xff\xff'
+```
+即除了ssp外全置1    
+    
+而`microOpcodeGen/microOpcodeGen.py`即为汇编具体实现的微操作，以取指令为例：
+```python
+def sendIR():
+    '''sendIR:
+    T1:
+    (PC) --MC=00--> AB;
+    (M) --CRDX=0--> DB --GI=0--> IR;
+    (PC)+1 --PINC=0--> PC;
+    '''
+    callInThisBeat(['mxc0', 'mxc1', 'crdx', 'gi', 'pinc'])
+
+def getOpHelper():
+    '''
+    getOPs:
+    T0:
+    sendIR();
+    MPLD = 0;
+    '''
+    # T0:
+    mpld()
+    sendIR()
+```
+在`sendIR()`中`callInThisBeat(['mxc0', 'mxc1', 'crdx', 'gi', 'pinc'])`表示，在这一拍中，置mxc0, mxc1, crdx, gi, pinc位，具体效果如代码中注释所示：
+```python
+'''sendIR:
+    T1:
+    (PC) --MC=00--> AB;
+    (M) --CRDX=0--> DB --GI=0--> IR;
+    (PC)+1 --PINC=0--> PC;
+'''
+```
+并把这一操作称作"sendIR"函数，那么取指令操作的实现即为：
+```python
+def getOpHelper():
+    '''
+    getOPs:
+    T0:
+    sendIR();
+    MPLD = 0;
+    '''
+    mpld()
+    sendIR()
+    
+# ...省略部分代码...
+
+# MICRO-OP BEGIN
+@asm_instruction
+def getOp():
+    getOpHelper()
+    
+# ...省略部分代码...
+
+opMaxNum = 16  # 因采用线性偏移方式, 此为微操作最大拍数，拍数不足部分用默认向量填充
+getOp(opMaxNum-1) # 长度15，即00000~0000E部分为getOp操作的微程序
+```
+即置"mpld"为有效位后（程序中可通过调用“X()”函数来置X位，也可以通过`callInThisBeat(['X'])`来置位，不过callInThisBeat后的置位就在下一拍了），在*同一拍*里置"sendIR"函数中的位，这个便是取指令的实现，运行脚本便会输出如下微操作程序向量：
+```
+$ python microOpcodeGen.py
+getOp:
+fc0fffdb
+...省略部分...
+In .m19 format:
+S1130000FC0FFFDBFF9FFFFFFF9FFFFFFF9FFFFF33
+S1130004FF9FFFFFFF9FFFFFFF9FFFFFFF9FFFFF78
+S1130008FF9FFFFFFF9FFFFFFF9FFFFFFF9FFFFF74
+S113000CFF9FFFFFFF9FFFFFFF9FFFFFFE0FFFDB25
+...省略部分...
+```
+由于微操作程序地址采用线性偏移方式，FF9FFFFF部分为默认向量填充     
